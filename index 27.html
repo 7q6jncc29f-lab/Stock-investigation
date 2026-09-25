@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Stock Investigation">
+<title>Stock Investigation</title>
+<!-- FWWS investigation workflow v7: 2026-09-25 — simplified fields and blank Area default -->
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#17202b;background:#f3f6f8}
+*{box-sizing:border-box}body{margin:0;background:#f3f6f8}header{background:#fff;padding:22px 16px 16px;border-bottom:1px solid #d8dee5;position:sticky;top:0;z-index:5}
+h1{margin:0;font-size:28px}main{padding:12px;max-width:760px;margin:auto}.card{background:#fff;border:1px solid #d4dbe2;border-radius:16px;margin-bottom:14px;overflow:hidden}
+.card h2{font-size:19px;margin:0;padding:14px 16px;background:#e9eff5}.pad{padding:12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+label{display:block;font-size:13px;font-weight:800;margin-bottom:5px}input,select,textarea{width:100%;padding:12px;border:1px solid #cbd4dc;border-radius:10px;font-size:16px;background:#fff}
+textarea{min-height:80px;resize:vertical}.wide{grid-column:1/-1}.photoBtns{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:10px}
+.photoBtn{min-height:58px;border:0;border-radius:12px;font-size:16px;font-weight:900;background:#1976d2;color:#fff}.photoBtn.import{background:#445b73}
+.preview{display:none;width:100%;max-height:240px;object-fit:contain;border-radius:12px;background:#eef2f5;margin:8px 0}.ocrStatus{font-size:13px;color:#68727d;text-align:center;min-height:18px}
+.reasons{display:grid;grid-template-columns:1fr 1fr;gap:7px}.reason{min-height:44px;border:1px solid #cbd4dc;background:#fff;border-radius:10px;font-weight:800}.reason.on{background:#17202b;color:#fff;border-color:#17202b}
+.primary,.publish,.reset{width:100%;min-height:52px;border:0;border-radius:12px;font-size:16px;font-weight:900}.primary{background:#17823b;color:#fff;margin-top:12px}.publish{background:#1976d2;color:#fff}.reset{background:#ffe9e9;color:#a71919;margin-top:8px}
+.entry{padding:12px 14px;border-top:1px solid #e2e7eb}.entry:first-child{border-top:0}.entryTitle{font-weight:900;font-size:17px}.meta{font-size:14px;line-height:1.5;margin-top:4px}.diffneg{color:#c62828;font-weight:900}.diffpos{color:#17823b;font-weight:900}.entryBtns{display:flex;gap:7px;margin-top:8px}.entryBtns button{border:0;border-radius:9px;padding:8px 12px;font-weight:800}.edit{background:#edf1f5}.delete{background:#ffe9e9;color:#a71919}
+.empty{padding:18px;text-align:center;color:#68727d}.store{padding:12px 16px}.store input{max-width:140px}
+.note{font-size:12px;color:#68727d;margin:8px 0 0}.hidden{display:none}
+@media(max-width:420px){.grid{grid-template-columns:1fr 1fr}.photoBtns{grid-template-columns:1fr 1fr}.reasons{grid-template-columns:1fr 1fr}}
+
+.review{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:10px}.review span{background:#e8f4ff;border:1px solid #b9d9f6;border-radius:8px;padding:7px;font-size:12px;font-weight:800}
+.flag{padding:10px;border-radius:10px;margin-top:10px;font-weight:900}.flag.high{background:#ffe4e4;color:#a71919}.flag.ok{background:#e9f7ed;color:#176c31}
+.checkline{display:flex;align-items:center;gap:8px;margin-top:10px;font-weight:800}.checkline input{width:auto;transform:scale(1.3)}
+@media(max-width:420px){.review{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<header><h1>Stock Investigation</h1></header>
+<main>
+<section class="card">
+<h2>Report</h2>
+<div class="store"><label for="store">Store number</label><input id="store" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="1022"></div>
+</section>
+
+<section class="card">
+<h2>Photo capture</h2>
+<div class="pad">
+<div class="photoBtns">
+<button class="photoBtn" id="takeBtn">📷 TAKE PHOTO</button>
+<button class="photoBtn import" id="importBtn">🖼 IMPORT PHOTO</button>
+</div>
+<input class="hidden" id="cameraInput" type="file" accept="image/*" capture="environment">
+<input class="hidden" id="libraryInput" type="file" accept="image/*">
+<img id="preview" class="preview" alt="Selected stock image"><button class="reset hidden" id="discardPhoto" type="button">DISCARD PHOTO</button>
+<div class="ocrStatus" id="ocrStatus">Photo details can be reviewed before adding the item.</div>
+<div class="review hidden" id="ocrReview"></div>
+<p class="note">Photo reading is best-effort. Always check the populated information before saving the entry.</p>
+</div>
+</section>
+
+<section class="card">
+<h2>Item details</h2>
+<div class="pad grid">
+<div><label>Item code</label><input id="code" inputmode="numeric" placeholder="Item code"></div>
+<div><label>Area</label><select id="area"><option value="">Not read — select area</option><option>Ambient</option><option>Fv</option><option>Chiller</option><option>Bread</option><option>Freezer</option><option>Bakery</option><option>Meat</option><option>Conv</option><option>Milk</option><option>Other</option></select></div>
+<div class="wide"><label>Item description</label><input id="desc" placeholder="Description"></div>
+<div><label>Backstock</label><input id="backstock" placeholder="-- / 2 C"></div>
+<div><label>Case size (p/c)</label><input id="pc" inputmode="numeric" placeholder="1" value="1"></div>
+<div><label>Stock quantity — Cases</label><input id="fileCases" inputmode="numeric" placeholder="0"></div>
+<div><label>Stock quantity — Units</label><input id="fileUnits" inputmode="numeric" placeholder="0"></div>
+<div><label>Shop floor — Units</label><input id="floorUnits" inputmode="numeric" placeholder="0"></div>
+<div><label>Warehouse — Units</label><input id="warehouseUnits" inputmode="numeric" placeholder="0"></div>
+<div><label>Sales today — Units</label><input id="salesUnits" inputmode="numeric" placeholder="0"></div>
+<div><label>Unit price £</label><input id="unitPrice" inputmode="decimal" placeholder="0.00"></div>
+<div><label>HU last 5 digits</label><input id="hu" inputmode="numeric" maxlength="5" placeholder="Optional"></div>
+<div class="wide"><label>Delivery history from FWWS</label><textarea id="deliveryHistory" placeholder="Wed 32 C, Thu 48 C…"></textarea></div>
+<div class="wide" id="calcBox"></div>
+<div class="wide"><label class="checkline"><input id="stockCorrected" type="checkbox"> Stock Corrected / acknowledged ✓</label></div>
+<div class="wide"><label class="checkline"><input id="replenish" type="checkbox"> Stock found in warehouse — replenish / no investigation required</label></div>
+<div class="wide"><label>Reason</label><div class="reasons" id="reasons"></div></div>
+<div class="wide"><label>Notes</label><textarea id="notes" placeholder="Further information…"></textarea></div>
+</div>
+<div class="pad" style="padding-top:0"><button class="primary" id="add">ADD ITEM</button></div>
+</section>
+
+<section class="card"><h2>Recorded items</h2><div id="entries"></div></section>
+<section class="card"><div class="pad"><button class="publish" id="publish">PUBLISH REPORT</button><button class="reset" id="reset">RESET REPORT</button></div></section>
+</main>
+
+<!-- Tesseract.js provides in-browser OCR. If unavailable, photo selection still works and fields remain manually editable. -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+const KEY='stock-investigation-v1';
+const REASONS=['Not delivered','Possible theft','Delivery discrepancy','Stock file incorrect','Damaged / write-off','Unknown','Other'];
+let state={store:'',items:[]}, selectedReason='Unknown', editIndex=-1;
+try{const x=JSON.parse(localStorage.getItem(KEY));if(x)state=x}catch(e){}
+const $=id=>document.getElementById(id);
+function save(){localStorage.setItem(KEY,JSON.stringify(state))}
+$('store').value=state.store||'';
+$('store').oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,4);state.store=e.target.value;save()}
+function renderReasons(){
+ $('reasons').innerHTML='';
+ REASONS.forEach(r=>{const b=document.createElement('button');b.className='reason'+(r===selectedReason?' on':'');b.textContent=r;b.onclick=()=>{selectedReason=r;renderReasons()};$('reasons').appendChild(b)})
+}
+function num(id){const v=$(id).value.trim();return v===''?0:Number(v)}
+function systemUnits(it){const pc=(it.area==='Meat'||it.area==='Fv')?1:Math.max(1,Number(it.pc)||1);return (Number(it.fileCases)||0)*pc+(Number(it.fileUnits)||0)}
+function physical(it){return (Number(it.floorUnits)||0)+(Number(it.warehouseUnits)||0)}
+function variance(it){return physical(it)-systemUnits(it)}
+function valueVariance(it){return Math.abs(variance(it))*(Number(it.unitPrice)||0)}
+function needsInvestigation(it){const pc=(it.area==='Meat'||it.area==='Fv')?1:Math.max(1,Number(it.pc)||1);return Math.abs(variance(it))>pc}
+function updateCalc(){
+ const it={area:$('area').value,pc:num('pc'),fileCases:num('fileCases'),fileUnits:num('fileUnits'),floorUnits:num('floorUnits'),warehouseUnits:num('warehouseUnits'),unitPrice:num('unitPrice')};
+ const d=variance(it),v=valueVariance(it),high=Math.abs(d)>=20||v>=50,need=needsInvestigation(it);
+ $('calcBox').innerHTML=`<div class="flag ${high?'high':'ok'}">FWWS ${systemUnits(it)} U → Counted ${physical(it)} U → ${Math.abs(d)} U ${d<0?'missing':d>0?'higher':'difference'} · £${v.toFixed(2)}${high?' · HIGH PRIORITY':''}${need?' · FURTHER INVESTIGATION REQUIRED':''}</div>`;
+}
+['area','pc','fileCases','fileUnits','floorUnits','warehouseUnits','unitPrice'].forEach(id=>$(id).addEventListener('input',updateCalc));
+function discardPhoto(){const p=$('preview');if(p.src&&p.src.startsWith('blob:'))URL.revokeObjectURL(p.src);p.style.display='none';p.removeAttribute('src');$('discardPhoto').classList.add('hidden');$('cameraInput').value='';$('libraryInput').value='';$('ocrStatus').textContent='Photo details can be reviewed before adding the item.'}
+function clearForm(){$('area').value='';['code','desc','backstock','fileCases','fileUnits','floorUnits','warehouseUnits','salesUnits','unitPrice','hu','deliveryHistory','notes'].forEach(x=>$(x).value='');$('pc').value='1';$('stockCorrected').checked=false;$('replenish').checked=false;$('ocrReview').classList.add('hidden');$('ocrReview').innerHTML='';selectedReason='Unknown';editIndex=-1;$('add').textContent='ADD ITEM';discardPhoto();renderReasons()}
+function render(){
+ const box=$('entries');box.innerHTML='';
+ if(!state.items.length){box.innerHTML='<div class="empty">No suspicious stock recorded yet.</div>';return}
+ state.items.forEach((it,i)=>{
+  const d=physical(it)-systemUnits(it);
+  const el=document.createElement('div');el.className='entry';
+  el.innerHTML=`<div class="entryTitle">${esc(it.code||'No code')} — ${esc(it.desc||'No description')}</div>
+  <div class="meta">${esc(it.area)}<br>Stock quantity: ${it.fileCases||0} C ${it.fileUnits||0} U &nbsp; Physical: ${physical(it)} U &nbsp; Difference: <span class="${d<0?'diffneg':d>0?'diffpos':''}">${d>0?'+':''}${d} U</span><br>£ variance: £${valueVariance(it).toFixed(2)}${(Math.abs(d)>=20||valueVariance(it)>=50)?' · <b>HIGH PRIORITY</b>':''}${needsInvestigation(it)?' · <b>FURTHER INVESTIGATION</b>':''}${it.stockCorrected?' · ✓ Stock corrected':''}${it.hu?' · HU '+esc(it.hu):''}<br>Reason: <b>${esc(it.reason)}</b>${it.deliveryHistory?'<br>Delivery: '+esc(it.deliveryHistory):''}${it.notes?'<br>Notes: '+esc(it.notes):''}</div>
+  <div class="entryBtns"><button class="edit">Edit</button><button class="delete">Delete</button></div>`;
+  el.querySelector('.edit').onclick=()=>editItem(i);el.querySelector('.delete').onclick=()=>{if(confirm('Delete this item?')){state.items.splice(i,1);save();render()}};
+  box.appendChild(el)
+ })
+}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function editItem(i){const it=state.items[i];editIndex=i;$('code').value=it.code||'';$('desc').value=it.desc||'';$('area').value=it.area||'';$('backstock').value=it.backstock||'';$('pc').value=it.pc||1;$('fileCases').value=it.fileCases??'';$('fileUnits').value=it.fileUnits??'';$('floorUnits').value=it.floorUnits??'';$('warehouseUnits').value=it.warehouseUnits??'';$('salesUnits').value=it.salesUnits??'';$('unitPrice').value=it.unitPrice||'';$('hu').value=it.hu||'';$('deliveryHistory').value=it.deliveryHistory||'';$('stockCorrected').checked=!!it.stockCorrected;$('replenish').checked=!!it.replenish;$('notes').value=it.notes||'';selectedReason=it.reason||'Unknown';$('add').textContent='SAVE CHANGES';renderReasons();updateCalc();scrollTo({top:$('code').getBoundingClientRect().top+scrollY-120,behavior:'smooth'})}
+$('add').onclick=()=>{
+ const it={code:cleanCode($('code').value.trim()),desc:$('desc').value.trim(),area:$('area').value,backstock:$('backstock').value.trim(),pc:Math.max(1,num('pc')),fileCases:num('fileCases'),fileUnits:num('fileUnits'),floorUnits:num('floorUnits'),warehouseUnits:num('warehouseUnits'),salesUnits:num('salesUnits'),unitPrice:num('unitPrice'),hu:$('hu').value.replace(/\D/g,'').slice(-5),deliveryHistory:$('deliveryHistory').value.trim(),stockCorrected:$('stockCorrected').checked,replenish:$('replenish').checked,reason:selectedReason,notes:$('notes').value.trim(),savedAt:new Date().toISOString()};
+ if(!it.code&&!it.desc){alert('Enter an item code or description.');return} if(it.code&&!/^\d{1,8}$/.test(it.code)){alert('Check the item code.');return}
+ if(!it.area){alert('Select the Order Area.');$('area').focus();return}
+ if(editIndex<0&&it.code&&state.items.some(x=>x.code===it.code)){if(!confirm('This item has already been recorded today. Save another timestamped snapshot?'))return}
+ if(it.replenish&&variance(it)===0){it.reason='Found in warehouse / replenish';it.noInvestigation=true}
+ if(editIndex>=0)state.items[editIndex]=it;else state.items.push(it);save();render();clearForm()
+};
+async function handlePhoto(file){
+ if(!file)return;
+ discardPhoto();const url=URL.createObjectURL(file);$('preview').src=url;$('preview').style.display='block';$('discardPhoto').classList.remove('hidden');
+ $('ocrStatus').textContent='Reading photo…';
+ if(!window.Tesseract){$('ocrStatus').textContent='Photo selected. Automatic reading is unavailable — enter the details manually.';return}
+ try{
+  const result=await Tesseract.recognize(file,'eng',{logger:m=>{if(m.status==='recognizing text')$('ocrStatus').textContent='Reading photo… '+Math.round((m.progress||0)*100)+'%'}});
+  const text=(result.data&&result.data.text)||'';
+  extract(text);$('ocrStatus').textContent='Photo read. Check the details below before adding the item.';
+ }catch(e){$('ocrStatus').textContent='Could not read this photo. You can still enter the details manually.'}
+}
+function cleanCode(v){v=String(v||'').replace(/\D/g,'');return v.replace(/^0+/,'')||'0'}
+function normOcr(text){return String(text||'').replace(/[|]/g,' ').replace(/[–—]/g,'-').replace(/\r/g,'');}
+function valueAfterLabel(lines,labelRx){for(let i=0;i<lines.length;i++){if(labelRx.test(lines[i])){let tail=lines[i].replace(labelRx,'').trim();if(tail&&tail!=='--')return tail;for(let j=i+1;j<Math.min(lines.length,i+3);j++){if(lines[j])return lines[j]}}}return ''}
+function extract(text){
+ $('area').value='';
+ const txt=normOcr(text), lines=txt.split(/\n/).map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean), raw=lines.join(' ');
+ // Item code: FWWS codes are normally 7 digits on screen. Keep internal/trailing zeroes; remove leading zeroes only.
+ let cm=raw.match(/(?:#\s*)?\b(0*\d{4,8})\b/); if(cm)$('code').value=cleanCode(cm[1]);
+ // p/c + price are on the line directly under the description. Price has no pound sign on FWWS.
+ let pm=raw.match(/\b(\d+)\s*(?:p\s*\/\s*c|units?\s+per\s+case)\b/i); if(pm)$('pc').value=pm[1];
+ let pr=raw.match(/(?:p\s*\/\s*c|units?\s+per\s+case)\s*\d*\s*(\d+[.,]\d{2})\s*\(\s*Unit\s*price\s*\)/i);
+ if(!pr)pr=raw.match(/\b(\d+[.,]\d{2})\s*\(\s*Unit\s*price\s*\)/i); if(pr)$('unitPrice').value=pr[1].replace(',','.');
+ // Description: use text between code and p/c marker when available.
+ let desc='';
+ if(cm){let pos=raw.indexOf(cm[1]);if(pos>=0){let tail=raw.slice(pos+cm[1].length);let cut=tail.search(/\b\d+\s*(?:p\s*\/\s*c|units?\s+per\s+case)\b/i);if(cut>0)desc=tail.slice(0,cut).replace(/^[^A-Za-z0-9]+/,'').trim();}}
+ if(desc){desc=desc.replace(/\s+/g,' ').slice(0,80);$('desc').value=desc;}
+ // Stock quantity accepts negative cases and/or negative units, and OCR O as zero.
+ let sm=raw.match(/Stock\s*quantity\s*[:.-]?\s*(-?\d+)\s*C\s*(-?[0-9Oo]+)\s*U/i);
+ if(sm){$('fileCases').value=sm[1];$('fileUnits').value=String(sm[2]).replace(/[Oo]/g,'0')}
+ // Sales
+ let sa=raw.match(/\bSales\s*[:.-]?\s*(\d+)\s*U\b/i); if(sa)$('salesUnits').value=sa[1];
+ // Backstock; -- means no value, not zero.
+ let bs=raw.match(/\bBackstock\s*[:.-]?\s*(--|-?\d+\s*[CU]?)/i); if(bs)$('backstock').value=bs[1];
+ // Area mapping. Plants/flowers retained as its own area; M&P maps to Meat.
+ let am=raw.match(/Order\s*areas?\s*[:.-]?\s*(M\s*&\s*P|F\s*&\s*V|12\s*-\s*Plants\s+and\s+Flowers|AMBIENT|CHILLER|FREEZER|BAKERY|BREAD|CONV|MILK)/i);
+ if(am){let a=am[1].replace(/\s+/g,' ').trim(),u=a.toUpperCase().replace(/\s/g,'');let map={'M&P':'Meat','F&V':'Fv','AMBIENT':'Ambient','CHILLER':'Chiller','FREEZER':'Freezer','BAKERY':'Bakery','BREAD':'Bread','CONV':'Conv','MILK':'Milk'};if(/^12\s*-\s*Plants/i.test(a))$('area').value='Other';else if(map[u])$('area').value=map[u];}
+ // Delivery: isolate Delivery(C) section and pair weekday labels with following values in displayed order.
+ let dsec='';let di=raw.search(/Delivery\s*\(\s*C\s*\)/i);if(di>=0){dsec=raw.slice(di);let stop=dsec.search(/\b(?:Backstock|Status|Order\s*areas?)\b/i);if(stop>0)dsec=dsec.slice(0,stop)}
+ let toks=dsec.match(/Mon|Tue|Wed|Thu|Fri|Sat|Sun|-?\d+\s*C?/gi)||[], days=[], vals=[];toks.forEach(t=>{/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)$/i.test(t)?days.push(t.slice(0,3)):vals.push((t.match(/-?\d+/)||[''])[0])});
+ if(days.length>=5&&vals.length>=days.length){let pairs=[];for(let i=0;i<days.length&&i<7;i++)pairs.push(days[i]+' '+vals[i]+' C');$('deliveryHistory').value=pairs.join(', ')}
+ const fields=[['Code',$('code').value],['Name',$('desc').value],['Area',$('area').value],['p/c',$('pc').value],['Price',$('unitPrice').value?('£'+$('unitPrice').value):''],['Stock',`${$('fileCases').value||0} C ${$('fileUnits').value||0} U`],['Sales',$('salesUnits').value],['Delivery',$('deliveryHistory').value]];
+ $('ocrReview').innerHTML=fields.filter(x=>x[1]!==''&&x[1]!=null).map(x=>`<span>${x[0]}: ${esc(x[1])}</span>`).join('');$('ocrReview').classList.remove('hidden');updateCalc();
+}
+$('discardPhoto').onclick=discardPhoto;
+$('takeBtn').onclick=()=>$('cameraInput').click();
+$('importBtn').onclick=()=>$('libraryInput').click();
+$('cameraInput').onchange=e=>handlePhoto(e.target.files[0]);
+$('libraryInput').onchange=e=>handlePhoto(e.target.files[0]);
+$('publish').onclick=async()=>{
+ if(!state.items.length){alert('No items recorded.');return}
+ const lower=state.items.filter(it=>variance(it)<0).sort((a,b)=>valueVariance(b)-valueVariance(a));
+ const higher=state.items.filter(it=>variance(it)>0).sort((a,b)=>valueVariance(b)-valueVariance(a));
+ const same=state.items.filter(it=>variance(it)===0);
+ const lines=[(state.store||'')+(state.store?' – ':'')+'Stock Investigation',''];
+ function addGroup(title,arr){if(!arr.length)return;lines.push(title);arr.forEach(it=>{const d=variance(it),pc=(it.area==='Meat'||it.area==='Fv')?1:Math.max(1,Number(it.pc)||1);lines.push(`${it.code||'No code'} – ${it.desc||'No description'}`,`Area: ${it.area} | p/c: ${pc}`,`FWWS: ${it.fileCases||0} C ${it.fileUnits||0} U (${systemUnits(it)} U)`,`Physical: ${physical(it)} U | Difference: ${d>0?'+':''}${d} U | £${valueVariance(it).toFixed(2)}`+(Math.abs(d)>=20||valueVariance(it)>=50?' | HIGH PRIORITY':''),`Reason: ${it.reason||'Unknown'}`+(it.stockCorrected?' | Stock corrected ✓':''));if(it.hu)lines.push(`HU: ${it.hu}`);if(it.deliveryHistory)lines.push(`Delivery: ${it.deliveryHistory}`);if(it.notes)lines.push(`Notes: ${it.notes}`);lines.push('')})}
+ addGroup('LOWER STOCK THAN STOCK FILE',lower);addGroup('HIGHER STOCK THAN STOCK FILE',higher);addGroup('NO VARIANCE / ACKNOWLEDGED',same);
+ const text=lines.join('\n').trim();
+ try{if(navigator.share)await navigator.share({text});else{await navigator.clipboard.writeText(text);alert('Report copied.')}}catch(e){if(e.name!=='AbortError')prompt('Copy report:',text)}
+};
+$('reset').onclick=()=>{if(confirm('Reset the whole report?')){state={store:state.store||'',items:[]};save();render();clearForm()}};
+renderReasons();render();updateCalc();
+</script>
+</body></html>
+

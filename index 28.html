@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Stock Investigation">
+<title>Stock Investigation</title>
+<!-- FWWS investigation workflow v8: 2026-09-25 — targeted field OCR and missing-value validation -->
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#17202b;background:#f3f6f8}
+*{box-sizing:border-box}body{margin:0;background:#f3f6f8}header{background:#fff;padding:22px 16px 16px;border-bottom:1px solid #d8dee5;position:sticky;top:0;z-index:5}
+h1{margin:0;font-size:28px}main{padding:12px;max-width:760px;margin:auto}.card{background:#fff;border:1px solid #d4dbe2;border-radius:16px;margin-bottom:14px;overflow:hidden}
+.card h2{font-size:19px;margin:0;padding:14px 16px;background:#e9eff5}.pad{padding:12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+label{display:block;font-size:13px;font-weight:800;margin-bottom:5px}input,select,textarea{width:100%;padding:12px;border:1px solid #cbd4dc;border-radius:10px;font-size:16px;background:#fff}
+textarea{min-height:80px;resize:vertical}.wide{grid-column:1/-1}.photoBtns{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:10px}
+.photoBtn{min-height:58px;border:0;border-radius:12px;font-size:16px;font-weight:900;background:#1976d2;color:#fff}.photoBtn.import{background:#445b73}
+.preview{display:none;width:100%;max-height:240px;object-fit:contain;border-radius:12px;background:#eef2f5;margin:8px 0}.ocrStatus{font-size:13px;color:#68727d;text-align:center;min-height:18px}
+.reasons{display:grid;grid-template-columns:1fr 1fr;gap:7px}.reason{min-height:44px;border:1px solid #cbd4dc;background:#fff;border-radius:10px;font-weight:800}.reason.on{background:#17202b;color:#fff;border-color:#17202b}
+.primary,.publish,.reset{width:100%;min-height:52px;border:0;border-radius:12px;font-size:16px;font-weight:900}.primary{background:#17823b;color:#fff;margin-top:12px}.publish{background:#1976d2;color:#fff}.reset{background:#ffe9e9;color:#a71919;margin-top:8px}
+.entry{padding:12px 14px;border-top:1px solid #e2e7eb}.entry:first-child{border-top:0}.entryTitle{font-weight:900;font-size:17px}.meta{font-size:14px;line-height:1.5;margin-top:4px}.diffneg{color:#c62828;font-weight:900}.diffpos{color:#17823b;font-weight:900}.entryBtns{display:flex;gap:7px;margin-top:8px}.entryBtns button{border:0;border-radius:9px;padding:8px 12px;font-weight:800}.edit{background:#edf1f5}.delete{background:#ffe9e9;color:#a71919}
+.empty{padding:18px;text-align:center;color:#68727d}.store{padding:12px 16px}.store input{max-width:140px}
+.note{font-size:12px;color:#68727d;margin:8px 0 0}.hidden{display:none}
+@media(max-width:420px){.grid{grid-template-columns:1fr 1fr}.photoBtns{grid-template-columns:1fr 1fr}.reasons{grid-template-columns:1fr 1fr}}
+
+.review.hidden{display:none}.review{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:10px}.review span{background:#e8f4ff;border:1px solid #b9d9f6;border-radius:8px;padding:7px;font-size:12px;font-weight:800}
+.flag{padding:10px;border-radius:10px;margin-top:10px;font-weight:900}.flag.high{background:#ffe4e4;color:#a71919}.flag.pending{background:#fff3d6;color:#735100}.flag.ok{background:#e9f7ed;color:#176c31}
+.checkline{display:flex;align-items:center;gap:8px;margin-top:10px;font-weight:800}.checkline input{width:auto;transform:scale(1.3)}
+@media(max-width:420px){.review{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<header><h1>Stock Investigation</h1></header>
+<main>
+<section class="card">
+<h2>Report</h2>
+<div class="store"><label for="store">Store number</label><input id="store" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="1022"></div>
+</section>
+
+<section class="card">
+<h2>Photo capture</h2>
+<div class="pad">
+<div class="photoBtns">
+<button class="photoBtn" id="takeBtn">📷 TAKE PHOTO</button>
+<button class="photoBtn import" id="importBtn">🖼 IMPORT PHOTO</button>
+</div>
+<input class="hidden" id="cameraInput" type="file" accept="image/*" capture="environment">
+<input class="hidden" id="libraryInput" type="file" accept="image/*">
+<img id="preview" class="preview" alt="Selected stock image"><button class="reset hidden" id="discardPhoto" type="button">DISCARD PHOTO</button>
+<div class="ocrStatus" id="ocrStatus">Photo details can be reviewed before adding the item.</div>
+<div class="review hidden" id="ocrReview"></div>
+<p class="note">Photo reading is best-effort. Always check the populated information before saving the entry.</p>
+</div>
+</section>
+
+<section class="card">
+<h2>Item details</h2>
+<div class="pad grid">
+<div><label>Item code</label><input id="code" inputmode="numeric" placeholder="Item code"></div>
+<div><label>Area</label><select id="area"><option value="">Select area</option><option>Ambient</option><option>Fv</option><option>Chiller</option><option>Bread</option><option>Freezer</option><option>Bakery</option><option>Meat</option><option>Conv</option><option>Milk</option><option>Non Food</option><option>Plants and Flowers</option><option>Other</option></select></div>
+<div class="wide"><label>Item description</label><input id="desc" placeholder="Description"></div>
+<div><label>Backstock</label><input id="backstock" placeholder="-- / 2 C"></div>
+<div><label>Pack size (p/c or kg/c)</label><input id="pc" inputmode="numeric" placeholder="Not read"></div>
+<div><label>Quantity basis</label><select id="measure"><option value="U">Units</option><option value="kg">Kilograms</option></select></div>
+<div><label>Stock quantity — Cases</label><input id="fileCases" inputmode="numeric" placeholder="Enter value"></div>
+<div><label>Stock quantity — Loose units / kg</label><input id="fileUnits" inputmode="numeric" placeholder="Enter value"></div>
+<div><label>Shop floor — Units / kg</label><input id="floorUnits" inputmode="numeric" placeholder="Enter value"></div>
+<div><label>Warehouse — Units / kg</label><input id="warehouseUnits" inputmode="numeric" placeholder="Enter value"></div>
+<div><label>Sales today — Units</label><input id="salesUnits" inputmode="numeric" placeholder="Enter value"></div>
+<div><label>Unit price £</label><input id="unitPrice" inputmode="decimal" placeholder="Not read"></div>
+<div><label>HU last 5 digits</label><input id="hu" inputmode="numeric" maxlength="5" placeholder="Optional"></div>
+<div class="wide"><label>Delivery history from FWWS</label><textarea id="deliveryHistory" placeholder="Wed 32 C, Thu 48 C…"></textarea></div>
+<div class="wide" id="calcBox"></div>
+<div class="wide"><label class="checkline"><input id="stockCorrected" type="checkbox"> Stock Corrected / acknowledged ✓</label></div>
+<div class="wide"><label class="checkline"><input id="replenish" type="checkbox"> Stock found in warehouse — replenish / no investigation required</label></div>
+<div class="wide"><label>Reason</label><div class="reasons" id="reasons"></div></div>
+<div class="wide"><label>Notes</label><textarea id="notes" placeholder="Further information…"></textarea></div>
+</div>
+<div class="pad" style="padding-top:0"><button class="primary" id="add">ADD ITEM</button></div>
+</section>
+
+<section class="card"><h2>Recorded items</h2><div id="entries"></div></section>
+<section class="card"><div class="pad"><button class="publish" id="publish">PUBLISH REPORT</button><button class="reset" id="reset">RESET REPORT</button></div></section>
+</main>
+
+<!-- Tesseract.js provides in-browser OCR. If unavailable, photo selection still works and fields remain manually editable. -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.min.js"></script>
+<script>
+const KEY='stock-investigation-v1';
+const REASONS=['Not delivered','Possible theft','Delivery discrepancy','Stock file incorrect','Damaged / write-off','Unknown','Other'];
+let state={store:'',items:[]}, selectedReason='Unknown', editIndex=-1;
+try{const x=JSON.parse(localStorage.getItem(KEY));if(x)state=x}catch(e){}
+const $=id=>document.getElementById(id);
+function save(){localStorage.setItem(KEY,JSON.stringify(state))}
+$('store').value=state.store||'';
+$('store').oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,4);state.store=e.target.value;save()}
+function renderReasons(){
+ $('reasons').innerHTML='';
+ REASONS.forEach(r=>{const b=document.createElement('button');b.className='reason'+(r===selectedReason?' on':'');b.textContent=r;b.onclick=()=>{selectedReason=r;renderReasons()};$('reasons').appendChild(b)})
+}
+function num(id){const v=$(id).value.trim();return v===''?null:Number(v)}
+function packSize(it){return it.measure==='kg'?Number(it.pc):(it.area==='Meat'||it.area==='Fv')?1:Number(it.pc)}
+function systemUnits(it){const pc=packSize(it);return (Number(it.fileCases)||0)*pc+(Number(it.fileUnits)||0)}
+function physical(it){return (Number(it.floorUnits)||0)+(Number(it.warehouseUnits)||0)}
+function variance(it){return physical(it)-systemUnits(it)}
+function valueVariance(it){return Math.abs(variance(it))*(Number(it.unitPrice)||0)}
+function needsInvestigation(it){const pc=packSize(it);return Math.abs(variance(it))>pc}
+function updateCalc(){
+ const it={area:$('area').value,measure:$('measure').value,pc:num('pc'),fileCases:num('fileCases'),fileUnits:num('fileUnits'),floorUnits:num('floorUnits'),warehouseUnits:num('warehouseUnits'),unitPrice:num('unitPrice')};
+ if(!it.area||['pc','fileCases','fileUnits','floorUnits','warehouseUnits','unitPrice'].some(id=>$(id).value.trim()===''||!Number.isFinite(num(id)))||it.pc<=0){$('calcBox').innerHTML='<div class="flag pending">Complete Area, pack size, stock, physical counts and price to calculate. Enter 0 only when confirmed.</div>';return}
+ const d=variance(it),v=valueVariance(it),high=(it.measure!=='kg'&&Math.abs(d)>=20)||v>=50,need=needsInvestigation(it);
+ $('calcBox').innerHTML=`<div class="flag ${high?'high':'ok'}">FWWS ${systemUnits(it)} ${it.measure} → Counted ${physical(it)} ${it.measure} → ${Math.abs(d)} ${it.measure} ${d<0?'missing':d>0?'higher':'difference'} · £${v.toFixed(2)}${high?' · HIGH PRIORITY':''}${need?' · FURTHER INVESTIGATION REQUIRED':''}</div>`;
+}
+['area','measure','pc','fileCases','fileUnits','floorUnits','warehouseUnits','unitPrice'].forEach(id=>$(id).addEventListener('input',updateCalc));
+function discardPhoto(){const p=$('preview');if(p.src&&p.src.startsWith('blob:'))URL.revokeObjectURL(p.src);p.style.display='none';p.removeAttribute('src');$('discardPhoto').classList.add('hidden');$('cameraInput').value='';$('libraryInput').value='';$('ocrStatus').textContent='Photo details can be reviewed before adding the item.'}
+function clearForm(){$('area').value='';$('measure').value='U';['code','desc','backstock','fileCases','fileUnits','floorUnits','warehouseUnits','salesUnits','unitPrice','hu','deliveryHistory','notes'].forEach(x=>$(x).value='');$('pc').value='';$('stockCorrected').checked=false;$('replenish').checked=false;$('ocrReview').classList.add('hidden');$('ocrReview').innerHTML='';selectedReason='Unknown';editIndex=-1;$('add').textContent='ADD ITEM';discardPhoto();renderReasons();updateCalc()}
+function render(){
+ const box=$('entries');box.innerHTML='';
+ if(!state.items.length){box.innerHTML='<div class="empty">No suspicious stock recorded yet.</div>';return}
+ state.items.forEach((it,i)=>{
+  const d=physical(it)-systemUnits(it);
+  const el=document.createElement('div');el.className='entry';
+  el.innerHTML=`<div class="entryTitle">${esc(it.code||'No code')} — ${esc(it.desc||'No description')}</div>
+  <div class="meta">${esc(it.area)}<br>Stock quantity: ${it.fileCases||0} C ${it.fileUnits??0} ${it.measure||'U'} &nbsp; Physical: ${physical(it)} ${it.measure||'U'} &nbsp; Difference: <span class="${d<0?'diffneg':d>0?'diffpos':''}">${d>0?'+':''}${d} ${it.measure||'U'}</span><br>£ variance: £${valueVariance(it).toFixed(2)}${((it.measure!=='kg'&&Math.abs(d)>=20)||valueVariance(it)>=50)?' · <b>HIGH PRIORITY</b>':''}${needsInvestigation(it)?' · <b>FURTHER INVESTIGATION</b>':''}${it.stockCorrected?' · ✓ Stock corrected':''}${it.hu?' · HU '+esc(it.hu):''}<br>Reason: <b>${esc(it.reason)}</b>${it.deliveryHistory?'<br>Delivery: '+esc(it.deliveryHistory):''}${it.notes?'<br>Notes: '+esc(it.notes):''}</div>
+  <div class="entryBtns"><button class="edit">Edit</button><button class="delete">Delete</button></div>`;
+  el.querySelector('.edit').onclick=()=>editItem(i);el.querySelector('.delete').onclick=()=>{if(confirm('Delete this item?')){state.items.splice(i,1);save();render()}};
+  box.appendChild(el)
+ })
+}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function editItem(i){const it=state.items[i];editIndex=i;$('code').value=it.code||'';$('desc').value=it.desc||'';$('area').value=it.area||'';$('measure').value=it.measure||'U';$('backstock').value=it.backstock||'';$('pc').value=it.pc||1;$('fileCases').value=it.fileCases??'';$('fileUnits').value=it.fileUnits??'';$('floorUnits').value=it.floorUnits??'';$('warehouseUnits').value=it.warehouseUnits??'';$('salesUnits').value=it.salesUnits??'';$('unitPrice').value=it.unitPrice??'';$('hu').value=it.hu||'';$('deliveryHistory').value=it.deliveryHistory||'';$('stockCorrected').checked=!!it.stockCorrected;$('replenish').checked=!!it.replenish;$('notes').value=it.notes||'';selectedReason=it.reason||'Unknown';$('add').textContent='SAVE CHANGES';renderReasons();updateCalc();scrollTo({top:$('code').getBoundingClientRect().top+scrollY-120,behavior:'smooth'})}
+$('add').onclick=()=>{
+ const it={code:cleanCode($('code').value.trim()),desc:$('desc').value.trim(),area:$('area').value,measure:$('measure').value,backstock:$('backstock').value.trim(),pc:num('pc'),fileCases:num('fileCases'),fileUnits:num('fileUnits'),floorUnits:num('floorUnits'),warehouseUnits:num('warehouseUnits'),salesUnits:num('salesUnits'),unitPrice:num('unitPrice'),hu:$('hu').value.replace(/\D/g,'').slice(-5),deliveryHistory:$('deliveryHistory').value.trim(),stockCorrected:$('stockCorrected').checked,replenish:$('replenish').checked,reason:selectedReason,notes:$('notes').value.trim(),savedAt:new Date().toISOString()};
+ if(!it.code&&!it.desc){alert('Enter an item code or description.');return} if(it.code&&!/^\d{1,8}$/.test(it.code)){alert('Check the item code.');return}
+ if(!it.area){alert('Select the Order Area.');$('area').focus();return}
+ for(const id of ['pc','fileCases','fileUnits','floorUnits','warehouseUnits','unitPrice']){if($(id).value.trim()===''||!Number.isFinite(num(id))){alert('Enter '+({pc:'pack size',fileCases:'stock cases',fileUnits:'stock loose quantity',floorUnits:'shop floor count',warehouseUnits:'warehouse count',unitPrice:'unit price'}[id])+'. Use 0 only when confirmed.');$(id).focus();return}}
+ if(it.pc<=0||it.unitPrice<0||it.floorUnits<0||it.warehouseUnits<0){alert('Check pack size, price and physical counts.');return}
+ if(!Number.isInteger(it.fileCases)||(it.measure!=='kg'&&['pc','fileUnits','floorUnits','warehouseUnits'].some(id=>!Number.isInteger(num(id))))){alert('Enter whole cases and units, or select Kilograms for weight stock.');return}
+ if(editIndex<0&&it.code&&state.items.some(x=>x.code===it.code)){if(!confirm('This item has already been recorded today. Save another timestamped snapshot?'))return}
+ if(it.replenish&&variance(it)===0){it.reason='Found in warehouse / replenish';it.noInvestigation=true}
+ if(editIndex>=0)state.items[editIndex]=it;else state.items.push(it);save();render();clearForm()
+};
+// Field extraction uses word coordinates; screen columns are never flattened together.
+function ocrWords(data){return data.words || (data.blocks||[]).flatMap(b=>(b.paragraphs||[]).flatMap(p=>(p.lines||[]).flatMap(l=>l.words||[])));}
+function centre(w){return {x:(w.bbox.x0+w.bbox.x1)/2,y:(w.bbox.y0+w.bbox.y1)/2};}
+function wordHeight(w){return Math.max(10,w.bbox.y1-w.bbox.y0);}
+function ocrClean(s){return String(s||'').replace(/[–—−]/g,'-').replace(/\r/g,'').trim();}
+function exactNumber(s){s=ocrClean(s).replace(/\s+/g,'');return /^-?\d+(?:[.,]\d+)?$/.test(s)?s.replace(',','.'):null;}
+function knownArea(s){const v=ocrClean(s).toUpperCase().replace(/\s+/g,'').replace(/^12-/,'');return {'M&P':'Meat','F&V':'Fv','AMBIENT':'Ambient','CHILLER':'Chiller','FREEZER':'Freezer','NONFOOD':'Non Food','NON-FOOD':'Non Food','BAKERY':'Bakery','BREAD':'Bread','CONV':'Conv','MILK':'Milk','PLANTSANDFLOWERS':'Plants and Flowers'}[v]||'';}
+async function readFwws(data,readRegion,width,height,progress=()=>{}){
+ const words=ocrWords(data).filter(w=>w.bbox&&w.confidence>=35);
+ const find=rx=>words.filter(w=>rx.test(ocrClean(w.text))).sort((a,b)=>b.confidence-a.confidence)[0];
+ let delivery=find(/^Delivery$/i);const stock=find(/^Stock$/i),sales=find(/^Sales$/i),order=find(/^Order$/i),item=find(/^information$/i);
+ const out={code:'',desc:'',pc:'',unitPrice:'',fileCases:'',fileUnits:'',salesUnits:'',backstock:'',area:'',deliveryHistory:'',measure:'U'};
+ const initialDays=words.filter(w=>/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)$/i.test(w.text)&&w.confidence>=70).sort((a,b)=>a.bbox.x0-b.bbox.x0);
+ if(!delivery&&initialDays.length===7){const d=initialDays[0],dh=wordHeight(d);delivery={text:'Delivery',confidence:90,bbox:{x0:d.bbox.x0-dh*1.4,x1:d.bbox.x1,y0:d.bbox.y0-dh*2,y1:d.bbox.y0-dh*.8}};}
+ const h=delivery?wordHeight(delivery):stock?wordHeight(stock):25;
+ const left=delivery?.bbox.x0??order?.bbox.x0;
+ const rightCol=stock?.bbox.x0;
+ const span=left!=null&&rightCol!=null?(rightCol-left)*1.95:width*.75;
+ const right=Math.min(width,rightCol!=null?rightCol+span*.48:width*.94);
+ function inBox(box){return words.filter(w=>{const c=centre(w);return c.x>=box.x0&&c.x<=box.x1&&c.y>=box.y0&&c.y<=box.y1}).sort((a,b)=>a.bbox.x0-b.bbox.x0);}
+ async function read(box,mode='7'){
+  box={x0:Math.max(0,box.x0),y0:Math.max(0,box.y0),x1:Math.min(width,box.x1),y1:Math.min(height,box.y1)};
+  if(box.x1<=box.x0||box.y1<=box.y0)return [];
+  const local=await readRegion(box,mode);
+  const all=ocrWords(local);const ws=all.filter(w=>w.confidence>=55);
+  // Never drop an uncertain word from the middle of a number or description.
+  const confident=all.length&&all.every(w=>w.confidence>=55);
+  return [confident?ws.map(w=>w.text).join(' ').trim():'',inBox(box).filter(w=>w.confidence>=60).map(w=>w.text).join(' ').trim()].filter(Boolean);
+ }
+ async function below(label,endX,parse){
+  if(!label)return null;
+  const lh=wordHeight(label),x=label.bbox.x0;
+  const options=await read({x0:x-lh*.2,y0:label.bbox.y1+lh*.2,x1:endX,y1:label.bbox.y1+lh*3.1});
+  for(const value of options){const parsed=parse(value);if(parsed!=null&&parsed!=='')return parsed;}return null;
+ }
+ progress('Finding item details');
+ // Only the item-code column, between the title and delivery row, can supply a code.
+ const candidates=words.filter(w=>/^[-#]?\d{4,8}$/.test(w.text)&&w.confidence>=65&&delivery&&centre(w).y<delivery.bbox.y0&&centre(w).y>(item?item.bbox.y1:delivery.bbox.y0-h*7)&&centre(w).x<(rightCol??width*.55));
+ if(candidates.length===1&&/^[-#]?\d{7,8}$/.test(candidates[0].text))out.code=candidates[0].text.replace(/\D/g,'').replace(/^0+(?=\d)/,'');
+ if(delivery&&left!=null&&rightCol!=null){const codeReads=await read({x0:Math.max(0,left-h*.5),x1:rightCol-h*1.2,y0:Math.max(0,delivery.bbox.y0-h*6),y1:delivery.bbox.y0-h*.6},'6');for(const t of codeReads){const matches=t.match(/(?:^|\s)[-#]?(\d{7,8})(?=\s|$)/g);if(matches?.length===1){out.code=matches[0].replace(/\D/g,'').replace(/^0+(?=\d)/,'');break;}}}
+ const detailWords=words.filter(w=>delivery&&centre(w).y<delivery.bbox.y0&&centre(w).y>delivery.bbox.y0-h*7&&centre(w).x>(left??0)+span*.4);
+ const pack=detailWords.find(w=>/^(?:p\/?c|units?|kg\/c)$/i.test(w.text));
+ const priceLabel=detailWords.find(w=>/^\(?Unit$/i.test(w.text));
+ const anchor=pack||priceLabel;
+ if(anchor){
+  const ah=wordHeight(anchor),x0=Math.max(0,(rightCol??anchor.bbox.x0-ah*2)-ah*.8),y=centre(anchor).y;
+  const options=await read({x0,y0:y-ah*1.05,x1:right,y1:y+ah*1.05});
+  for(const text of options){
+   const p=text.match(/\b(\d+(?:[.,]\d+)?)\s*(p\s*\/\s*c|units?\s+per\s+case|kg\s*\/\s*c)\b/i);
+   const money=text.match(/\b(\d+[.,]\d{2})\s*\(?\s*Unit\s*price\s*\)?/i);
+   if(p&&!out.pc){out.pc=p[1].replace(',','.');if(/^kg/i.test(p[2]))out.measure='kg';}
+   if(money&&!out.unitPrice)out.unitPrice=money[1].replace(',','.');
+  }
+  // The description is immediately above the product detail line, in its own right-hand column.
+  const names=await read({x0,y0:y-ah*3.7,x1:right,y1:y-ah*.95});
+  names.sort((a,b)=>b.length-a.length);for(let name of names){name=name.replace(/^[^A-Za-z]+/,'').trim();if(/[A-Za-z]{3}/.test(name)&&name.length<=65&&!/Delivery|information|price|p\s*\/\s*c|FWWS/i.test(name)&&/^[A-Za-z0-9 &%+'’().,\/-]+$/.test(name)){out.desc=name;break;}}
+ }
+ progress('Reading stock and sales');
+ const st=await below(stock,right,s=>{const m=ocrClean(s).match(/(?:^|\s)(-?\d+)\s*C\s*(-?[\dOo]+(?:[.,]\d+)?)\s*(U|kg)\b/i);return m?{cases:m[1],units:m[2].replace(/[Oo]/g,'0').replace(',','.'),measure:m[3].toLowerCase()==='kg'?'kg':'U'}:null});
+ if(st){out.fileCases=st.cases;out.fileUnits=st.units;out.measure=st.measure;}
+ const sa=await below(sales,stock?stock.bbox.x0-h*.5:right,s=>{const m=ocrClean(s).match(/^(-?\d+(?:[.,]\d+)?)\s*U$/i);return m?m[1].replace(',','.'):null;});if(sa!=null)out.salesUnits=sa;
+ const back=find(/^Backstock$/i);const bs=await below(back,sales?sales.bbox.x0-h*.5:(back?back.bbox.x1:right),s=>/^(-?\d+\s*[CU])$/i.test(ocrClean(s))?ocrClean(s):null);if(bs)out.backstock=bs;
+ progress('Reading Order Area');
+ const ar=await below(order,order?Math.min(right,order.bbox.x0+span*.48):right,knownArea);if(ar)out.area=ar;
+ if(out.area==='Meat'||out.area==='Fv'){if(out.measure!=='kg')out.pc='1';}
+ progress('Reading delivery history');
+ const dayMap={mon:'Mon',tue:'Tue',wed:'Wed',thu:'Thu',fri:'Fri',sat:'Sat',sun:'Sun',mo:'Mon',di:'Tue',mi:'Wed',do:'Thu',fr:'Fri',sa:'Sat',so:'Sun'};
+ const days=words.filter(w=>dayMap[w.text.toLowerCase()]&&delivery&&centre(w).y>delivery.bbox.y0-h&&centre(w).y<(stock?stock.bbox.y0:delivery.bbox.y1+h*5)&&w.confidence>=60).sort((a,b)=>a.bbox.x0-b.bbox.x0);
+ if(days.length===7&&new Set(days.map(w=>dayMap[w.text.toLowerCase()])).size===7){
+  const gap=(centre(days[6]).x-centre(days[0]).x)/6,pairs=[];
+  for(const day of days){const dh=wordHeight(day),c=centre(day),box={x0:c.x-gap*.39,x1:c.x+gap*.45,y0:day.bbox.y1+dh*.55,y1:day.bbox.y1+dh*3.25};const vals=await read(box);const retry=await read(box,'6');const numbers=vals.map(exactNumber).filter(v=>v!=null&&/^\d+$/.test(v));const checks=retry.map(exactNumber).filter(v=>v!=null&&/^\d+$/.test(v));const all=[...numbers,...checks];const distinct=[...new Set(all)];const value=distinct.length===1&&numbers.length&&checks.length?distinct[0]:null;pairs.push(dayMap[day.text.toLowerCase()]+' '+(value==null?'Not read':value+' C'));}
+  out.deliveryHistory=pairs.join(', ');
+ }
+ return out;
+}
+if(typeof module!=='undefined')module.exports={readFwws,ocrWords,knownArea};
+function fwwsTilt(data,width){
+ const days=ocrWords(data).filter(w=>/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun|Mo|Di|Mi|Do|Fr|Sa|So)$/i.test(w.text)&&w.confidence>=60);
+ const slopes=[];for(let i=0;i<days.length;i++)for(let j=i+1;j<days.length;j++){const a=centre(days[i]),b=centre(days[j]);if(Math.abs(b.x-a.x)>width*.12){const s=(b.y-a.y)/(b.x-a.x);if(Math.abs(s)<.5)slopes.push(s);}}
+ if(days.length<4||slopes.length<4)return 0;slopes.sort((a,b)=>a-b);const slope=slopes[Math.floor(slopes.length/2)];const agreeing=slopes.filter(x=>Math.abs(x-slope)<.035);return agreeing.length>=slopes.length*.65?Math.atan(slope)*180/Math.PI:0;
+}
+if(typeof module!=='undefined')module.exports.fwwsTilt=fwwsTilt;
+function findFwwsPanel(rgba,width,height){
+ const seen=new Uint8Array(width*height),queue=new Int32Array(width*height);let best=null;
+ const bright=i=>{const p=i*4,r=rgba[p],g=rgba[p+1],b=rgba[p+2];return (r+g+b)/3>165&&Math.max(r,g,b)-Math.min(r,g,b)<65};
+ for(let y=Math.floor(height*.15);y<height;y++)for(let x=0;x<width;x++){
+  const start=y*width+x;if(seen[start]||!bright(start))continue;let head=0,tail=1;queue[0]=start;seen[start]=1;let x0=x,x1=x,y0=y,y1=y;
+  while(head<tail){const pos=queue[head++],px=pos%width,py=Math.floor(pos/width);x0=Math.min(x0,px);x1=Math.max(x1,px);y0=Math.min(y0,py);y1=Math.max(y1,py);const ns=[px>0?pos-1:-1,px<width-1?pos+1:-1,py>0?pos-width:-1,py<height-1?pos+width:-1];for(const n of ns)if(n>=0&&!seen[n]&&bright(n)){seen[n]=1;queue[tail++]=n;}}
+  if(x1-x0>width*.25&&y1-y0>height*.2&&x0<width*.6&&x1>width*.4&&(!best||tail>best.count))best={x0,y0,x1:x1+1,y1:y1+1,count:tail};
+ }
+ return best&&best.count>width*height*.07?best:null;
+}
+if(typeof module!=='undefined')module.exports.findFwwsPanel=findFwwsPanel;
+function fwwsScreenType(data){const text=data.text||ocrWords(data).map(w=>w.text).join(' ');if(/General\s+Data/i.test(text)&&/Time\s+Series/i.test(text)){if(/C-Date|Order\s+Areas|Delivery\s+Date/i.test(text))return 'general';return 'history';}if(/Main\s+Location|CS:\s*\d+\s*Pieces/i.test(text))return 'counting';return 'classic';}
+async function readGeneralFwws(data,readRegion,width,height,progress=()=>{}){
+ const words=ocrWords(data).filter(w=>w.bbox&&w.confidence>=40),find=rx=>words.filter(w=>rx.test(w.text)).sort((a,b)=>a.bbox.y0-b.bbox.y0)[0];
+ const result={code:'',desc:'',pc:'',unitPrice:'',fileCases:'',fileUnits:'',salesUnits:'',backstock:'',area:'',deliveryHistory:'',measure:'U'};
+ const stock=find(/^Stock$/i),back=find(/^Backstock$/i),order=find(/^Order$/i),cs=find(/^CS$/i),price=find(/^Price$/i),cdate=find(/^C-Date$/i);
+ if(!stock||!order)return result;
+ async function read(box,mode='7'){box={x0:Math.max(0,box.x0),x1:Math.min(width,box.x1),y0:Math.max(0,box.y0),y1:Math.min(height,box.y1)};if(box.x1<=box.x0||box.y1<=box.y0)return '';const d=await readRegion(box,mode),w=ocrWords(d);return w.length&&w.every(x=>x.confidence>=55)?w.map(x=>x.text).join(' ').trim():'';}
+ async function below(label,endX,span=6){if(!label)return '';const h=wordHeight(label);return read({x0:label.bbox.x0-h*.35,x1:Math.min(endX,label.bbox.x0+h*span),y0:label.bbox.y1+h*.15,y1:label.bbox.y1+h*2.8});}
+ progress('Reading General Data');
+ const h=wordHeight(order),left=stock.bbox.x0;
+ const itemWords=words.filter(w=>/^\d{7,8}$/.test(w.text)&&w.bbox.y0>order.bbox.y0-h*3&&w.bbox.y0<(cdate?.bbox.y0??stock.bbox.y0)&&w.bbox.x0<order.bbox.x0);
+ if(itemWords.length===1){result.code=itemWords[0].text.replace(/^0+(?=\d)/,'');const code=itemWords[0];result.desc=await read({x0:left-h*.6,x1:order.bbox.x0-h,y0:code.bbox.y0-h*3.1,y1:code.bbox.y0-h*.25});}
+ const area=await below(order,width,12);const areaText=area.replace(/^\d{1,2}\s*[-–]?\s*/,'');result.area=/^Fruit\s*(?:and|&)\s*Veg$/i.test(areaText)?'Fv':knownArea(areaText);
+ result.pc=exactNumber(await below(cs,width))??'';
+ result.unitPrice=exactNumber(await below(price,price?price.bbox.x0+width*.3:width))??'';
+ const column=label=>words.filter(w=>new RegExp('^'+label+'$','i').test(w.text)&&w.bbox.y0>stock.bbox.y1&&w.bbox.y0<(back?.bbox.y0??stock.bbox.y0+height*.2))[0];
+ const cases=column('Cases'),pieces=column('Pieces');
+ result.fileCases=exactNumber(await below(cases,pieces?pieces.bbox.x0-h:width))??'';
+ result.fileUnits=exactNumber(await below(pieces,width))??'';
+ if(!/^[A-Za-z0-9 &%+'’().,\/-]+$/.test(result.desc))result.desc='';
+ return result;
+}
+if(typeof module!=='undefined'){module.exports.readGeneralFwws=readGeneralFwws;module.exports.fwwsScreenType=fwwsScreenType;}
+function enhanceField(pixels,width,height){
+ const gray=new Uint8Array(width*height),sum=new Float64Array((width+1)*(height+1)),stride=width+1;
+ for(let y=0;y<height;y++){let row=0;for(let x=0;x<width;x++){const i=y*width+x,p=i*4;gray[i]=Math.round(.2126*pixels[p]+.7152*pixels[p+1]+.0722*pixels[p+2]);row+=gray[i];sum[(y+1)*stride+x+1]=sum[y*stride+x+1]+row;}}
+ for(let y=0;y<height;y++)for(let x=0;x<width;x++){const x0=Math.max(0,x-25),y0=Math.max(0,y-25),x1=Math.min(width,x+26),y1=Math.min(height,y+26);const mean=(sum[y1*stride+x1]-sum[y0*stride+x1]-sum[y1*stride+x0]+sum[y0*stride+x0])/((x1-x0)*(y1-y0));const i=(y*width+x)*4,v=gray[y*width+x]<mean-9?0:255;pixels[i]=pixels[i+1]=pixels[i+2]=v;}return pixels;
+}
+if(typeof module!=='undefined')module.exports.enhanceField=enhanceField;
+
+let photoRun=0;
+function sourceCanvas(img){const c=document.createElement('canvas'),scale=Math.min(1,2200/Math.max(img.naturalWidth,img.naturalHeight));c.width=Math.round(img.naturalWidth*scale);c.height=Math.round(img.naturalHeight*scale);c.getContext('2d').drawImage(img,0,0,c.width,c.height);return c;}
+function straightenCanvas(source,degrees){const angle=-degrees*Math.PI/180,c=document.createElement('canvas');c.width=Math.ceil(Math.abs(source.width*Math.cos(angle))+Math.abs(source.height*Math.sin(angle)));c.height=Math.ceil(Math.abs(source.width*Math.sin(angle))+Math.abs(source.height*Math.cos(angle)));const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.translate(c.width/2,c.height/2);ctx.rotate(angle);ctx.drawImage(source,-source.width/2,-source.height/2);return c;}
+function cropCanvas(source,box){const c=document.createElement('canvas'),scale=2,pad=16;const width=box.x1-box.x0,height=box.y1-box.y0;c.width=Math.ceil(width*scale)+pad*2;c.height=Math.ceil(height*scale)+pad*2;const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(source,box.x0,box.y0,width,height,pad,pad,width*scale,height*scale);const pixels=ctx.getImageData(0,0,c.width,c.height);for(let i=0;i<pixels.data.length;i+=4){const g=Math.round(.2126*pixels.data[i]+.7152*pixels.data[i+1]+.0722*pixels.data[i+2]);pixels.data[i]=pixels.data[i+1]=pixels.data[i+2]=g;}ctx.putImageData(pixels,0,0);return c;}
+async function handlePhoto(file){
+ if(!file)return;const run=++photoRun;discardPhoto();
+ const ids=['code','desc','area','pc','unitPrice','fileCases','fileUnits','salesUnits','backstock','deliveryHistory','floorUnits','warehouseUnits'];ids.forEach(id=>$(id).value='');$('measure').value='U';$('stockCorrected').checked=false;$('replenish').checked=false;$('ocrReview').innerHTML='';$('ocrReview').classList.add('hidden');updateCalc();
+ const url=URL.createObjectURL(file);$('preview').src=url;$('preview').style.display='block';$('discardPhoto').classList.remove('hidden');
+ const buttons=['takeBtn','importBtn','add'];buttons.forEach(id=>$(id).disabled=true);
+ let worker;
+ const progress=msg=>{if(run!==photoRun)throw new Error('Cancelled');$('ocrStatus').textContent=msg+'…';};
+ try{
+  progress('Loading photo reader');if(!window.Tesseract)throw new Error('Reader unavailable');
+  const img=new Image();await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url});let source=sourceCanvas(img);
+  const small=document.createElement('canvas');small.width=240;small.height=Math.round(source.height*240/source.width);const sc=small.getContext('2d');sc.drawImage(source,0,0,small.width,small.height);const panel=findFwwsPanel(sc.getImageData(0,0,small.width,small.height).data,small.width,small.height);if(panel&&(panel.y1-panel.y0)>small.height*.45){const scale=source.width/240,left=Math.max(0,Math.floor(panel.x0*scale)-8),top=Math.max(0,Math.floor(panel.y0*scale)-8),right=Math.min(source.width,Math.ceil(panel.x1*scale)+8),bottom=Math.min(source.height,Math.ceil(panel.y1*scale)+8);const c=document.createElement('canvas');c.width=right-left;c.height=bottom-top;c.getContext('2d').drawImage(source,left,top,c.width,c.height,0,0,c.width,c.height);source=c;}
+  worker=await Tesseract.createWorker('eng',1);await worker.setParameters({tessedit_pageseg_mode:'11'});
+  progress('Locating FWWS fields');let {data}=await worker.recognize(source,{}, {blocks:true});
+  const angle=fwwsTilt(data,source.width);if(Math.abs(angle)>.7){progress('Straightening photo');source=straightenCanvas(source,angle);({data}=await worker.recognize(source,{}, {blocks:true}));}
+  const screen=fwwsScreenType(data);if(screen==='history'||screen==='counting'||screen==='general'){$('ocrStatus').textContent=screen==='history'?'Time Series layout detected. This version reads the original FWWS Item Information layout; history import is not yet supported.':screen==='general'?'General Data layout detected. This version reads the original FWWS Item Information layout; General Data import is not yet supported.':'Counting screen detected. Import the original FWWS Item Information screen for system stock.';return;}
+  const fields=await (screen==='general'?readGeneralFwws:readFwws)(data,async(box,mode)=>{progress('Reading field');await worker.setParameters({tessedit_pageseg_mode:mode});return (await worker.recognize(cropCanvas(source,box),{}, {blocks:true})).data;},source.width,source.height,progress);
+  if(run!==photoRun)return;
+  for(const [id,value] of Object.entries(fields))if($(id))$(id).value=value;
+  const labels={code:'Code',desc:'Description',area:'Area',pc:'Pack size',unitPrice:'Price',salesUnits:'Sales',deliveryHistory:'Delivery'};
+  const review=Object.entries(labels).map(([id,label])=>[label,fields[id]]);review.push(['Stock',fields.fileCases!==''&&fields.fileUnits!==''?fields.fileCases+' C '+fields.fileUnits+' '+fields.measure:'']);
+  $('ocrReview').innerHTML=review.map(([label,value])=>'<span>'+label+': '+esc(value||'Not read')+'</span>').join('');$('ocrReview').classList.remove('hidden');
+  const missing=['code','desc','area','pc','unitPrice','fileCases','fileUnits'].filter(id=>fields[id]==='').length;
+  $('ocrStatus').textContent=missing?'Photo read — '+missing+' required fields not read. Enter missing details and check the others.':'Photo read — check every value before counting and saving.';updateCalc();
+ }catch(e){if(run===photoRun)$('ocrStatus').textContent='Could not read this photo fully. Try a closer, straight photo or enter the missing details.';}
+ finally{if(worker)await worker.terminate();buttons.forEach(id=>$(id).disabled=false);}
+}
+
+function cleanCode(v){return String(v||'').replace(/\D/g,'').replace(/^0+(?=\d)/,'')}
+$('discardPhoto').onclick=()=>{photoRun++;discardPhoto();$('ocrReview').classList.add('hidden');};
+$('takeBtn').onclick=()=>$('cameraInput').click();
+$('importBtn').onclick=()=>$('libraryInput').click();
+$('cameraInput').onchange=e=>handlePhoto(e.target.files[0]);
+$('libraryInput').onchange=e=>handlePhoto(e.target.files[0]);
+$('publish').onclick=async()=>{
+ if(!state.items.length){alert('No items recorded.');return}
+ const lower=state.items.filter(it=>variance(it)<0).sort((a,b)=>valueVariance(b)-valueVariance(a));
+ const higher=state.items.filter(it=>variance(it)>0).sort((a,b)=>valueVariance(b)-valueVariance(a));
+ const same=state.items.filter(it=>variance(it)===0);
+ const lines=[(state.store||'')+(state.store?' – ':'')+'Stock Investigation',''];
+ function addGroup(title,arr){if(!arr.length)return;lines.push(title);arr.forEach(it=>{const d=variance(it),pc=packSize(it);lines.push(`${it.code||'No code'} – ${it.desc||'No description'}`,`Area: ${it.area} | p/c: ${pc}`,`FWWS: ${it.fileCases||0} C ${it.fileUnits??0} ${it.measure||'U'} (${systemUnits(it)} ${it.measure||'U'})`,`Physical: ${physical(it)} ${it.measure||'U'} | Difference: ${d>0?'+':''}${d} ${it.measure||'U'} | £${valueVariance(it).toFixed(2)}`+((it.measure!=='kg'&&Math.abs(d)>=20)||valueVariance(it)>=50?' | HIGH PRIORITY':''),`Reason: ${it.reason||'Unknown'}`+(it.stockCorrected?' | Stock corrected ✓':''));if(it.hu)lines.push(`HU: ${it.hu}`);if(it.deliveryHistory)lines.push(`Delivery: ${it.deliveryHistory}`);if(it.notes)lines.push(`Notes: ${it.notes}`);lines.push('')})}
+ addGroup('LOWER STOCK THAN STOCK FILE',lower);addGroup('HIGHER STOCK THAN STOCK FILE',higher);addGroup('NO VARIANCE / ACKNOWLEDGED',same);
+ const text=lines.join('\n').trim();
+ try{if(navigator.share)await navigator.share({text});else{await navigator.clipboard.writeText(text);alert('Report copied.')}}catch(e){if(e.name!=='AbortError')prompt('Copy report:',text)}
+};
+$('reset').onclick=()=>{if(confirm('Reset the whole report?')){state={store:state.store||'',items:[]};save();render();clearForm()}};
+renderReasons();render();updateCalc();
+</script>
+</body></html>
+
+
